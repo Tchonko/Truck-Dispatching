@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truck Dispatching</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url(mining.jpg);
+            margin: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        form {
+            max-width: 400px;
+            margin: auto;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            cursor: pointer;
+        }
+
+            button:hover {
+                background-color: #45a049;
+            }
+
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .error {
+            color: red;
+            display: none;
+        }
+
+        .description {
+            font-size: 0.9em;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+
+    <h1>TRUCK DISPATCHING</h1>
+    <form id="truckForm">
+
+        <label for="loaders">Number of loaders:</label>
+        <input type="number" id="loaders" name="loaders" min="1" step="1" required>
+        <span id="loadersError" class="error">Please enter a strictly positive number.</span>
+        <div class="description">The total number of loaders available for operation.</div>
+        <br><br>
+
+        <label for="cycle_time">Loader cycle time (in minutes):</label>
+        <input type="number" id="cycle_time" name="cycle_time" min="0.01" step="0.01" required>
+        <span id="cycleTimeError" class="error">Please enter a strictly positive number.</span>
+        <div class="description">The average time it takes for a loader to complete one cycle, retrieve a bucket and load it into the truck.</div>
+        <br><br>
+
+        <label for="distance">Distance between the sterile clay and the step (in meters):</label>
+        <input type="number" id="distance" name="distance" min="0.01" step="0.01" required>
+        <span id="distanceError" class="error">Please enter a strictly positive number.</span>
+        <div class="description">The distance that needs to be covered from the sterile clay site to the operational step.</div>
+        <br><br>
+
+        <label for="average_speed">Average speed of a truck (in km/h):</label>
+        <input type="number" id="average_speed" name="average_speed" min="0.01" step="0.01" required>
+        <span id="averageSpeedError" class="error">Please enter a strictly positive number.</span>
+        <div class="description">The average speed at which a truck travels during operations.</div>
+        <br><br>
+
+        <label for="truck_downtime">Truck unloading time (in minutes):</label>
+        <input type="number" id="truck_downtime" name="truck_downtime" min="0.01" step="0.01" required>
+        <span id="truckDowntimeError" class="error">Please enter a strictly positive number.</span>
+        <div class="description">the time required for a truck to unload.</div>
+        <br><br>
+
+
+        <label for="buckets_per_truck">Number of buckets per truck:</label>
+        <input type="number" id="buckets_per_truck" name="buckets_per_truck" min="1" step="1" required>
+        <span id="bucketsPerTruckError" class="error">Please enter a strictly positive number.</span>
+        <div class="description">The number of buckets a truck can carry in one trip.</div>
+        <br><br>
+
+        <button type="button" onclick={submitForm()}>Evaluate max number of trucks</button>
+
+    </form>
+
+
+    <div id="result"></div>
+
+    <script>
+         const fields = [
+            {id: 'loaders', errorId: 'loadersError'},
+            {id: 'cycle_time', errorId: 'cycleTimeError'},
+            {id: 'distance', errorId: 'distanceError'},
+            {id: 'average_speed', errorId: 'averageSpeedError'},
+            {id: 'truck_downtime', errorId: 'truckDowntimeError'},
+            {id: 'buckets_per_truck', errorId: 'bucketsPerTruckError'}
+        ];
+
+        function validateInput(event) {
+            const input = event.target;
+            const error = document.getElementById(input.dataset.errorId);
+            if (input.value <= 0) {
+                error.style.display = 'inline';
+            } else {
+                error.style.display = 'none';
+            }
+        }
+
+        fields.forEach(field => {
+            const input = document.getElementById(field.id);
+            input.dataset.errorId = field.errorId;
+            input.addEventListener('input', validateInput);
+        });
+
+        function validateForm() {
+            let isValid = true;
+
+            fields.forEach(field => {
+                const input = document.getElementById(field.id);
+                const error = document.getElementById(field.errorId);
+                if (input.value <= 0) {
+                    error.style.display = 'inline';
+                    isValid = false;
+                } else {
+                    error.style.display = 'none';
+                }
+            });
+
+            return isValid;
+        }
+
+        // Function to calculate the optimal loader count
+        function calculateOptimalLoaderCount(load_duration, travel_duration) {
+            if (load_duration > travel_duration) {
+                return 1;
+            }
+            for (let i = 1; ; i++) {
+                if (i * load_duration === travel_duration) {
+                    return i;
+                }
+                if(i * load_duration > travel_duration){
+                    return i-1;
+                }
+            }
+        }
+
+        function submitForm() {
+            const resultDiv = document.getElementById('result');
+            if (validateForm()) {
+                const loaders = parseFloat(document.getElementById('loaders').value);
+                const bucketsPerTruck = parseFloat(document.getElementById('buckets_per_truck').value);
+                const loader_cycle_time = parseFloat(document.getElementById('cycle_time').value);
+                const unloading_truck_duration = parseFloat(document.getElementById('truck_downtime').value);
+                const distance = parseFloat(document.getElementById('distance').value);
+                const average_speed =  parseFloat(document.getElementById('average_speed').value);
+
+                const quotient = Math.floor(bucketsPerTruck / loaders);
+                const remainder = bucketsPerTruck % loaders;
+
+                // Duration to load a truck
+                let loading_time_per_truck;
+
+                if(remainder === 0) {
+                    loading_time_per_truck = quotient * loader_cycle_time;
+                }
+                else {
+                    loading_time_per_truck = (quotient + 1) * loader_cycle_time;
+                }
+
+                // Duration for one travel and unloading of a truck
+                const travel_and_unloading_duration = (((2 * distance) / (average_speed * 1000)) * 60) + unloading_truck_duration;
+
+                // Max Number of trucks
+                const max_number_trucks = calculateOptimalLoaderCount(loading_time_per_truck,  travel_and_unloading_duration);
+
+
+                resultDiv.innerHTML = ` Loading Time per Truck: ${loading_time_per_truck} minutes <br>
+                                        Duration for one travel and unloading of a truck: ${travel_and_unloading_duration} minutes <br>
+                                       Max Number of trucks: ${max_number_trucks}`;
+                // Your custom function logic here
+            } else {
+                resultDiv.innerHTML = "Form data is invalid. Please correct the errors and try again.";
+            }
+        }
+
+        document.getElementById('truckForm').addEventListener('submit', function(event) {
+            if (!validateForm()) {
+                event.preventDefault();
+            }
+        });
+    </script>
+
+</body>
+</html>
